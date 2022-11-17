@@ -6,27 +6,24 @@
 import os
 from pyltp import Segmentor, Postagger, Parser, NamedEntityRecognizer
 
+
 class LtpParser():
     def __init__(self):
-        LTP_DIR = "./ltp_data"
-        self.segmentor = Segmentor()
-        self.segmentor.load(os.path.join(LTP_DIR, "cws.model"))
+        LTP_DIR = ".\ltp_data_v3.4.0"
+        self.segmentor = Segmentor(os.path.join(LTP_DIR, "cws.model"))
 
-        self.postagger = Postagger()
-        self.postagger.load(os.path.join(LTP_DIR, "pos.model"))
+        self.postagger = Postagger(os.path.join(LTP_DIR, "pos.model"))
 
-        self.parser = Parser()
-        self.parser.load(os.path.join(LTP_DIR, "parser.model"))
+        self.parser = Parser(os.path.join(LTP_DIR, "parser.model"))
 
-        self.recognizer = NamedEntityRecognizer()
-        self.recognizer.load(os.path.join(LTP_DIR, "ner.model"))
-
+        self.recognizer = NamedEntityRecognizer(os.path.join(LTP_DIR, "ner.model"))
+        
+        
     '''ltp基本操作'''
     def basic_parser(self, words):
         postags = list(self.postagger.postag(words))
         netags = self.recognizer.recognize(words, postags)
         return postags, netags
-
     '''ltp获取词性'''
     def get_postag(self, words):
         return list(self.postagger.postag(words))
@@ -47,9 +44,9 @@ class LtpParser():
             if ntag[0] != "O":
                 if ntag[0] == "S":
                     if ntag[-2:] == "Nh":
-                        name_entity_list.append(word+'_%s ' % index)
+                        name_entity_list.append(word + '_%s ' % index)
                     elif ntag[-2:] == "Ni":
-                        organization_entity_list.append(word+'_%s ' % index)
+                        organization_entity_list.append(word + '_%s ' % index)
                     else:
                         place_entity_list.append(word + '_%s ' % index)
                 elif ntag[0] == "B":
@@ -82,7 +79,7 @@ class LtpParser():
             index += 1
         name_entity_dist['nhs'] = self.modify_entity(name_entity_list, words, postags, 'nh')
         name_entity_dist['nis'] = self.modify_entity(organization_entity_list, words, postags, 'ni')
-        name_entity_dist['nss'] = self.modify_entity(place_entity_list,words, postags, 'ns')
+        name_entity_dist['nss'] = self.modify_entity(place_entity_list, words, postags, 'ns')
         return name_entity_dist
 
     '''entity修正,为rebuild_wordspostags做准备'''
@@ -99,7 +96,8 @@ class LtpParser():
                 if start_index == entity_dict['end_index']:
                     consist = [words[int(start_index)] + '/' + postags[int(start_index)]]
                 else:
-                    consist = [words[index] + '/' + postags[index] for index in range(int(start_index), int(end_index)+1)]
+                    consist = [words[index] + '/' + postags[index] for index in
+                               range(int(start_index), int(end_index) + 1)]
                 entity_dict['consist'] = consist
                 entity_dict['name'] = ''.join(tmp.split('_')[0] for tmp in subs) + '/' + tag
                 entity_modify.append(entity_dict)
@@ -125,10 +123,12 @@ class LtpParser():
         words = ['Root'] + words
         postags = ['w'] + postags
         tuples = list()
-        for index in range(len(words)-1):
-            arc_index = arcs[index].head
-            arc_relation = arcs[index].relation
-            tuples.append([index+1, words[index+1], postags[index+1], words[arc_index], postags[arc_index], arc_index, arc_relation])
+        for index in range(len(words) - 1):
+            arc_index = arcs[index][0]
+            arc_relation = arcs[index][1]
+            tuples.append(
+                [index + 1, words[index + 1], postags[index + 1], words[arc_index], postags[arc_index], arc_index,
+                 arc_relation])
 
         return tuples
 
@@ -149,17 +149,17 @@ class LtpParser():
         return child_dict_list
 
     '''parser主函数'''
+
     def parser_main(self, words, postags):
         tuples = self.syntax_parser(words, postags)
         child_dict_list = self.build_parse_child_dict(words, postags, tuples)
         return tuples, child_dict_list
 
     '''基础语言分析'''
+
     def basic_process(self, sentence):
         words = list(self.segmentor.segment(sentence))
         postags, netags = self.basic_parser(words)
         name_entity_dist = self.format_entity(words, netags, postags)
         words, postags = self.rebuild_wordspostags(name_entity_dist, words, postags)
         return words, postags
-
-
